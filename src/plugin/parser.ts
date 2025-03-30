@@ -68,7 +68,7 @@ export function enrichKeywords(keywords: EmojiKeywords, config: EmojiConfig): Em
     for (const [subcategory, emojis] of Object.entries(subcategories)) {
       for (const emoji of emojis) {
         if (enriched[emoji]) {
-          enriched[emoji] = `${enriched[emoji]} (${category} > ${subcategory})`
+          enriched[emoji] = `${enriched[emoji]}, ${category}, ${subcategory}`
         }
       }
     }

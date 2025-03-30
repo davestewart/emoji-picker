@@ -355,7 +355,7 @@ class EmojiView {
   private renderEmojiButton(emoji: string, container: HTMLTableCellElement): void {
     const button = document.createElement('button')
     button.textContent = emoji
-    button.title = this.keywords[emoji] || ''
+    button.title = (this.keywords[emoji] || '').split(',').shift() || ''
     button.style.cssText = `
       font-size: 1.2rem;
       padding: 0.15rem;
