@@ -56,4 +56,23 @@ export function parseConfig(yamlString: string): EmojiConfig | EmojiKeywords {
     console.error('Failed to parse emoji config:', error)
     throw new Error('Invalid emoji configuration format')
   }
+}
+
+/**
+ * Enriches keywords with category and subcategory information
+ */
+export function enrichKeywords(keywords: EmojiKeywords, config: EmojiConfig): EmojiKeywords {
+  const enriched: EmojiKeywords = { ...keywords }
+  
+  for (const [category, subcategories] of Object.entries(config)) {
+    for (const [subcategory, emojis] of Object.entries(subcategories)) {
+      for (const emoji of emojis) {
+        if (enriched[emoji]) {
+          enriched[emoji] = `${enriched[emoji]} (${category} > ${subcategory})`
+        }
+      }
+    }
+  }
+  
+  return enriched
 } 

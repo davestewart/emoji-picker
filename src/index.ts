@@ -1,6 +1,6 @@
 import type { EmojiConfig, EmojiPickerOptions } from './types'
 import { EmojiPickerUI } from './ui'
-import { parseConfig } from './parser'
+import { parseConfig, enrichKeywords } from './parser'
 
 interface EmojiKeywords {
   [emoji: string]: string
@@ -29,7 +29,9 @@ export class EmojiPicker {
     try {
       // Use provided config or load default
       if (config) {
-        this.config = typeof config === 'string' ? parseConfig(config) : config
+        this.config = typeof config === 'string' 
+          ? parseConfig(config) as EmojiConfig 
+          : config
       } else {
         console.log('Loading default config...')
         const response = await fetch('/src/config/emojis.yml')
@@ -38,7 +40,11 @@ export class EmojiPicker {
         }
         const yaml = await response.text()
         console.log('Loaded config:', yaml)
-        this.config = parseConfig(yaml)
+        this.config = parseConfig(yaml) as EmojiConfig
+      }
+
+      if (!this.config) {
+        throw new Error('Failed to load emoji configuration')
       }
 
       // Load keywords
@@ -48,7 +54,10 @@ export class EmojiPicker {
         throw new Error(`Failed to load keywords: ${keywordsResponse.statusText}`)
       }
       const keywordsYaml = await keywordsResponse.text()
-      this.keywords = parseConfig(keywordsYaml)
+      const rawKeywords = parseConfig(keywordsYaml) as EmojiKeywords
+      
+      // Enrich keywords with category information
+      this.keywords = enrichKeywords(rawKeywords, this.config)
 
       console.log('Parsed config:', this.config)
       console.log('Parsed keywords:', this.keywords)

@@ -75,7 +75,7 @@ class EmojiPopup {
       border-radius: 4px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       padding: 0.5rem;
-      max-height: 400px;
+      _max-height: 400px;
       display: none;
       z-index: 1000;
     `
@@ -85,9 +85,10 @@ class EmojiPopup {
   createTableContainer(): HTMLDivElement {
     const container = document.createElement('div')
     container.style.cssText = `
-      max-height: 350px;
+      max-height: 450px;
       overflow-y: auto;
       scroll-padding: 0.5rem;
+      padding-right: 0.5rem;
     `
     return container
   }
@@ -191,6 +192,7 @@ class EmojiSearch {
     input.type = 'text'
     input.placeholder = 'Search emojis...'
     input.style.cssText = `
+      box-sizing: border-box;
       width: 100%;
       padding: 0.5rem;
       border: 1px solid #ccc;
@@ -317,6 +319,7 @@ class EmojiView {
       background: #f5f5f5;
       padding: 0.25rem 0.5rem;
       font-size: 0.9rem;
+      border-radius: 4px;
     `
 
     // Render subcategories
@@ -332,8 +335,8 @@ class EmojiView {
     const labelCell = row.insertCell()
     labelCell.textContent = subcategory
     labelCell.style.cssText = `
-      font-style: italic;
       padding: 0.25rem 0.5rem;
+      padding-left: 1.25rem;
       font-size: 0.85rem;
       color: #666;
     `
@@ -394,6 +397,15 @@ class EmojiView {
     const currentIndex = buttons.findIndex(button => button === document.activeElement)
 
     if (currentIndex === -1) {
+      // If no current focus, try to focus the last chosen emoji first
+      if (this.lastChosenEmoji) {
+        const lastChosenButton = buttons.find(button => button.textContent === this.lastChosenEmoji)
+        if (lastChosenButton) {
+          lastChosenButton.focus()
+          return
+        }
+      }
+      // Only focus first button if no last chosen emoji or it's not visible
       if (buttons.length > 0) {
         buttons[0].focus()
         this.lastColumnIndex = 0
@@ -421,6 +433,7 @@ class EmojiView {
         e.preventDefault()
         if (currentIndex < buttons.length - 1) {
           buttons[currentIndex + 1].focus()
+          this.lastChosenEmoji = buttons[currentIndex + 1].textContent || ''
         }
         break
 
@@ -428,6 +441,7 @@ class EmojiView {
         e.preventDefault()
         if (currentIndex > 0) {
           buttons[currentIndex - 1].focus()
+          this.lastChosenEmoji = buttons[currentIndex - 1].textContent || ''
         }
         break
 
@@ -449,6 +463,15 @@ class EmojiView {
       case 'PageUp':
         e.preventDefault()
         this.navigateToNextSection('prev')
+        break
+
+      case 'Tab':
+        e.preventDefault()
+        // Store the current emoji before navigating
+        if (document.activeElement instanceof HTMLButtonElement) {
+          this.lastChosenEmoji = document.activeElement.textContent || ''
+        }
+        this.navigateToNextSection(e.shiftKey ? 'prev' : 'next')
         break
 
       case 'Enter':
@@ -520,14 +543,21 @@ class EmojiView {
     }
 
     if (found) {
+      // Store the current indices before updating
+      const oldCategoryIndex = this.currentCategoryIndex
+      const oldSubcategoryIndex = this.currentSubcategoryIndex
+      
+      // Update indices
       this.currentCategoryIndex = nextCategoryIndex
       this.currentSubcategoryIndex = nextSubcategoryIndex
+      
+      // Render and focus
       this.render()
-      this.focusFirstEmojiInSection(nextCategoryIndex, nextSubcategoryIndex)
+      this.focusFirstEmojiInSection(nextCategoryIndex, nextSubcategoryIndex, oldCategoryIndex)
     }
   }
 
-  private focusFirstEmojiInSection(categoryIndex: number, subcategoryIndex: number): void {
+  private focusFirstEmojiInSection(categoryIndex: number, subcategoryIndex: number, oldCategoryIndex?: number): void {
     const categories = Object.entries(this.config)
     const [, subcategories] = categories[categoryIndex]
     const subcategoryEntries = Object.entries(subcategories)
@@ -538,13 +568,19 @@ class EmojiView {
       const targetButton = buttons.find(button => button.textContent === emojis[0])
       if (targetButton) {
         targetButton.focus()
+        this.lastChosenEmoji = emojis[0]  // Store the first emoji in the new section
         
-        // Find and scroll the category header into view
+        // Find the category header
         const categoryHeader = targetButton.closest('tr')?.previousElementSibling
         if (categoryHeader instanceof HTMLTableRowElement && 
             categoryHeader.cells.length === 1 && 
             categoryHeader.cells[0].colSpan === 2) {
-          categoryHeader.scrollIntoView({ block: 'start', behavior: 'smooth' })
+          // Use the old category index to determine scroll direction
+          const isGoingBackward = oldCategoryIndex !== undefined && categoryIndex < oldCategoryIndex
+          categoryHeader.scrollIntoView({ 
+            block: isGoingBackward ? 'end' : 'start',
+            behavior: 'smooth' 
+          })
         }
       }
     }
@@ -591,6 +627,10 @@ class EmojiView {
     return this.table
   }
 
+  getLastChosenEmoji(): string | null {
+    return this.lastChosenEmoji
+  }
+
   focusLastChosenEmoji(): void {
     if (!this.lastChosenEmoji) {
       // If no last chosen emoji, focus the first button
@@ -616,8 +656,35 @@ class EmojiView {
   }
 
   filterEmojis(filter: string): void {
+    // Store the current last chosen emoji before filtering
+    const lastChosenEmoji = this.lastChosenEmoji
     this.currentFilter = filter
     this.render()
+    
+    // After rendering, try to focus the last chosen emoji if it's still visible
+    if (lastChosenEmoji) {
+      const buttons = Array.from(this.table.getElementsByTagName('button')) as HTMLButtonElement[]
+      const lastChosenButton = buttons.find(button => button.textContent === lastChosenEmoji)
+      if (lastChosenButton) {
+        lastChosenButton.focus()
+        this.lastChosenEmoji = lastChosenEmoji  // Restore the last chosen emoji
+      } else {
+        // If the last chosen emoji is not visible in the filtered view,
+        // focus the first visible button
+        const firstButton = buttons[0]
+        if (firstButton) {
+          firstButton.focus()
+          this.lastChosenEmoji = firstButton.textContent || null  // Update last chosen emoji
+        }
+      }
+    } else {
+      // If no last chosen emoji, focus the first button
+      const firstButton = this.table.querySelector('button')
+      if (firstButton) {
+        firstButton.focus()
+        this.lastChosenEmoji = firstButton.textContent || null  // Update last chosen emoji
+      }
+    }
   }
 }
 
@@ -708,10 +775,10 @@ export class EmojiPickerUI {
     console.log('Hiding popup')
     this.popup.hide()
     
-    // Clear search
+    // Only clear the search input value, not the filter or buffer
     this.search.getElement().value = ''
-    this.view.filterEmojis('')
-    this.searchBuffer = ''
+    
+    // Clear timeout if it exists
     if (this.searchTimeout) {
       window.clearTimeout(this.searchTimeout)
       this.searchTimeout = null
@@ -724,8 +791,18 @@ export class EmojiPickerUI {
       return
     }
 
+    console.log('Selecting emoji:', emoji)
     this.button.updateEmoji(emoji)
     this.popup.setMultiSelecting(keepOpen)
+
+    // Clear the filter and search buffer
+    this.search.getElement().value = ''
+    this.view.filterEmojis('')
+    this.searchBuffer = ''
+    if (this.searchTimeout) {
+      window.clearTimeout(this.searchTimeout)
+      this.searchTimeout = null
+    }
 
     if (this.editor) {
       const text = this.editor.value
@@ -765,6 +842,11 @@ export class EmojiPickerUI {
         window.clearTimeout(this.searchTimeout)
       }
       
+      // If we're in the table view, use the search input's current value as the base
+      if (document.activeElement?.tagName === 'BUTTON') {
+        this.searchBuffer = this.search.getValue()
+      }
+      
       // Add the key to the buffer
       this.searchBuffer += e.key
       
@@ -781,9 +863,16 @@ export class EmojiPickerUI {
       return
     }
 
-    // Clear the search buffer on non-letter keys
-    if (this.searchBuffer && !['Delete', 'Backspace', 'Tab', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      this.searchBuffer = ''
+    // Handle Tab and Page navigation
+    if (e.key === 'Tab' || e.key === 'PageDown' || e.key === 'PageUp') {
+      e.preventDefault()
+      this.view.handleKeydown(e)
+      return
+    }
+
+    // Only clear search buffer on non-navigation keys
+    if (!['Delete', 'Backspace', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Escape'].includes(e.key)) {
+      this.searchBuffer = this.search.getValue()
       if (this.searchTimeout) {
         window.clearTimeout(this.searchTimeout)
         this.searchTimeout = null
@@ -791,20 +880,28 @@ export class EmojiPickerUI {
     }
 
     if (e.key === 'Escape') {
-      if (this.search.getValue()) {
-        e.preventDefault()
-        this.search.focus()
+      e.preventDefault()
+      // If there's a search value, clear it first
+      if (this.searchBuffer || this.search.getValue()) {
+        console.log('Clearing search filter, last chosen emoji:', this.view.getLastChosenEmoji())
+        
+        // Clear the search
         this.search.getElement().value = ''
         this.view.filterEmojis('')
         this.searchBuffer = ''
+        
+        // Use setTimeout to ensure the DOM has updated
+        setTimeout(() => {
+          console.log('Focusing last chosen emoji after filter clear')
+          this.view.focusLastChosenEmoji()
+        }, 0)
       } else {
         this.hidePopup()
       }
     } else if (e.key === 'ArrowDown' && document.activeElement === this.search.getElement()) {
       e.preventDefault()
       this.view.focusLastChosenEmoji()
-      this.searchBuffer = ''
-    } else if (['Delete', 'Backspace', 'Tab'].includes(e.key)) {
+    } else if (['Delete', 'Backspace'].includes(e.key)) {
       this.search.focus()
       this.searchBuffer = ''
     } else {
