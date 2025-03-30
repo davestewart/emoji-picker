@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // Configuration for building the library
   build: {
     lib: {
       entry: 'src/index.ts',
@@ -13,9 +14,5 @@ export default defineConfig({
         globals: {}
       }
     }
-  },
-  server: {
-    open: '/playground/'
-  },
-  publicDir: 'src'
+  }
 }) 

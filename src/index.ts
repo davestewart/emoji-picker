@@ -44,7 +44,6 @@ export class EmojiPicker {
    * Initialize the emoji picker with configuration
    */
   async init(options: EmojiPickerOptions): Promise<void> {
-    debugger
     console.log('Initializing EmojiPicker with options:', options)
     if (options.emojis) {
       this.config = options.emojis

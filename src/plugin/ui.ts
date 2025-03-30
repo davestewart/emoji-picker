@@ -1,4 +1,4 @@
-import type { EmojiConfig } from './types'
+import type { EmojiConfig, EmojiData } from './types'
 import { splitEmojis } from './parser'
 
 /**
@@ -56,13 +56,14 @@ class EmojiSearch {
  * Handles the emoji grid and keyboard navigation
  */
 class EmojiView {
-  private table: HTMLTableElement
-  private lastColumnIndex = 0
+  private container: HTMLDivElement
   private config: EmojiConfig
   private onEmojiSelect: (emoji: string, keepOpen: boolean) => void
   private lastChosenEmoji: string | null = null
   private keywords: Record<string, string>
   private currentFilter = ''
+  private emojiButtons: HTMLButtonElement[] = []
+  private highlightedIndex = -1
 
   constructor(
     config: EmojiConfig,
@@ -73,119 +74,130 @@ class EmojiView {
     this.config = config
     this.onEmojiSelect = onEmojiSelect
     this.keywords = keywords || {}
-    this.table = this.createTable()
-    this.render()
+    this.container = this.createContainer()
   }
 
-  private createTable(): HTMLTableElement {
-    const table = document.createElement('table')
-    table.style.cssText = `
-      border-collapse: collapse;
+  private createContainer(): HTMLDivElement {
+    const container = document.createElement('div')
+    container.classList.add('emoji-grid-container')
+    container.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
       width: 100%;
-      border: 1px solid #ccc;
-      margin-top: 1rem;
     `
-    return table
+    return container
   }
 
   render(): void {
     console.log('Rendering EmojiView')
-    this.table.innerHTML = ''
+    this.container.innerHTML = ''
+    this.emojiButtons = []
     
     let hasVisibleEmojis = false
     
-    for (const [category, subcategories] of Object.entries(this.config)) {
-      console.log('Processing category:', category, 'subcategories:', subcategories)
-      const visibleSubcategories: Record<string, string[]> = {}
-      
-      for (const [subcategory, emojis] of Object.entries(subcategories)) {
-        console.log('Processing subcategory:', subcategory, 'emojis:', emojis)
-        const emojiArray = typeof emojis === 'string' ? splitEmojis(emojis) : []
-        console.log('Split emojis:', emojiArray)
-        const filteredEmojis = emojiArray.filter((emoji: string) => {
-          if (!this.currentFilter) return true
-          const name = this.keywords[emoji]?.toLowerCase() || ''
-          return name.includes(this.currentFilter)
-        })
-        
-        if (filteredEmojis.length > 0) {
-          visibleSubcategories[subcategory] = filteredEmojis
-          hasVisibleEmojis = true
-        }
-      }
-      
-      if (Object.keys(visibleSubcategories).length > 0) {
-        this.renderCategory(category, visibleSubcategories)
+    for (const [category, data] of Object.entries(this.config)) {
+      const categoryContent = this.renderCategoryRecursive(category, data, 0)
+      if (categoryContent) {
+        this.container.appendChild(categoryContent)
+        hasVisibleEmojis = true
       }
     }
 
     if (!hasVisibleEmojis) {
-      const row = this.table.insertRow()
-      const cell = row.insertCell()
-      cell.colSpan = 2
-      cell.textContent = 'No emojis found for that filter'
-      cell.style.cssText = `
+      const noResultsElement = document.createElement('div')
+      noResultsElement.textContent = 'No emojis found for that filter'
+      noResultsElement.style.cssText = `
         text-align: center;
         padding: 1rem;
         color: #666;
         font-style: italic;
       `
-    }
-    console.log('EmojiView rendered, table:', this.table.innerHTML)
-  }
-
-  private renderCategory(category: string, subcategories: Record<string, string[]>): void {
-    // Render category header
-    const categoryRow = this.table.insertRow()
-    const categoryCell = categoryRow.insertCell()
-    categoryCell.colSpan = 2
-    categoryCell.textContent = category
-    categoryCell.style.cssText = `
-      font-weight: bold;
-      background: #f5f5f5;
-      padding: 0.25rem 0.5rem;
-      font-size: 0.9rem;
-      border-radius: 4px;
-    `
-
-    // Render subcategories
-    for (const [subcategory, emojis] of Object.entries(subcategories)) {
-      this.renderSubcategory(subcategory, emojis)
+      this.container.appendChild(noResultsElement)
     }
   }
 
-  private renderSubcategory(subcategory: string, emojis: string[]): void {
-    const row = this.table.insertRow()
+  private renderCategoryRecursive(name: string, data: EmojiData, level: number): HTMLElement | null {
+    const container = document.createElement('div')
+    container.classList.add('emoji-category')
     
-    // Subcategory label
-    const labelCell = row.insertCell()
-    labelCell.textContent = subcategory
-    labelCell.style.cssText = `
+    let hasContent = false
+    
+    // Create category header with appropriate indentation
+    const header = document.createElement('div')
+    header.classList.add('emoji-category-header')
+    header.textContent = name
+    header.style.cssText = `
+      font-weight: ${level === 0 ? 'bold' : 'normal'};
+      font-size: ${level === 0 ? '1rem' : '0.9rem'};
+      background: ${level === 0 ? '#f5f5f5' : 'transparent'};
       padding: 0.25rem 0.5rem;
-      padding-left: 1.25rem;
-      font-size: 0.85rem;
-      color: #666;
+      border-radius: 4px;
+      color: #333;
+      margin-left: ${level * 12}px;
     `
-
-    // Emoji buttons
-    const emojiCell = row.insertCell()
-    emojiCell.style.cssText = `
-      padding: 0.25rem;
-      white-space: nowrap;
-      line-height: 1;
+    container.appendChild(header)
+    
+    // Create grid for the emojis
+    const emojiGrid = document.createElement('div')
+    emojiGrid.classList.add('emoji-grid')
+    emojiGrid.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+      gap: 4px;
+      padding: 4px;
+      margin-left: ${(level + 1) * 12}px;
     `
-
-    emojis.forEach(emoji => this.renderEmojiButton(emoji, emojiCell))
+    
+    // Process the data
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string') {
+        // This is a leaf node with emojis
+        const emojis = splitEmojis(value)
+        const filteredEmojis = this.filterEmojisArray(emojis)
+        
+        if (filteredEmojis.length > 0) {
+          hasContent = true
+          for (const emoji of filteredEmojis) {
+            const button = this.createEmojiButton(emoji)
+            emojiGrid.appendChild(button)
+            this.emojiButtons.push(button)
+          }
+        }
+      } else {
+        // This is a nested category
+        const nestedCategory = this.renderCategoryRecursive(key, value, level + 1)
+        if (nestedCategory) {
+          hasContent = true
+          container.appendChild(nestedCategory)
+        }
+      }
+    }
+    
+    // Only add the emoji grid if it has content
+    if (emojiGrid.children.length > 0) {
+      container.appendChild(emojiGrid)
+    }
+    
+    return hasContent ? container : null
   }
 
-  private renderEmojiButton(emoji: string, container: HTMLTableCellElement): void {
+  private filterEmojisArray(emojis: string[]): string[] {
+    if (!this.currentFilter) return emojis
+    
+    return emojis.filter(emoji => {
+      const name = this.keywords[emoji]?.toLowerCase() || ''
+      return name.includes(this.currentFilter)
+    })
+  }
+
+  private createEmojiButton(emoji: string): HTMLButtonElement {
     const button = document.createElement('button')
     button.textContent = emoji
     button.title = (this.keywords[emoji] || '').split(',').shift() || ''
     button.style.cssText = `
       font-size: 1.2rem;
       padding: 0.15rem;
-      margin: 0.1rem;
       border: none;
       background: none;
       cursor: pointer;
@@ -194,10 +206,23 @@ class EmojiView {
       line-height: 1;
       vertical-align: middle;
       outline: none;
+      width: 100%;
+      height: 100%;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     `
 
-    button.addEventListener('mouseover', () => button.style.backgroundColor = '#f0f0f0')
-    button.addEventListener('mouseout', () => button.style.backgroundColor = 'transparent')
+    button.addEventListener('mouseover', () => {
+      button.style.backgroundColor = '#f0f0f0'
+      this.highlightedIndex = this.emojiButtons.indexOf(button)
+    })
+    
+    button.addEventListener('mouseout', () => {
+      button.style.backgroundColor = 'transparent'
+    })
+    
     button.addEventListener('click', (e) => {
       e.preventDefault()
       const keepOpen = e.metaKey || e.ctrlKey
@@ -209,137 +234,95 @@ class EmojiView {
     button.addEventListener('focus', () => {
       button.style.backgroundColor = '#e0e0e0'
       button.style.boxShadow = '0 0 0 2px #007bff'
+      this.highlightedIndex = this.emojiButtons.indexOf(button)
     })
+    
     button.addEventListener('blur', () => {
       button.style.backgroundColor = 'transparent'
       button.style.boxShadow = 'none'
     })
 
-    container.appendChild(button)
+    return button
   }
 
   handleKeydown(e: KeyboardEvent): void {
-    const buttons = Array.from(this.table.getElementsByTagName('button')) as HTMLButtonElement[]
-    const currentIndex = buttons.findIndex(button => button === document.activeElement)
-
-    if (currentIndex === -1) {
-      // If no current focus, try to focus the last chosen emoji first
-      if (this.lastChosenEmoji) {
-        const lastChosenButton = buttons.find(button => button.textContent === this.lastChosenEmoji)
-        if (lastChosenButton) {
-          lastChosenButton.focus()
-          return
-        }
-      }
-      // Only focus first button if no last chosen emoji or it's not visible
-      if (buttons.length > 0) {
-        buttons[0].focus()
-        this.lastColumnIndex = 0
-      }
-      return
-    }
-
-    const currentPosition = this.getCurrentRowPosition()
-    if (!currentPosition) return
-
-    const { rowButtons, columnIndex } = currentPosition
-    this.lastColumnIndex = columnIndex
-
-    this.handleNavigationKey(e, buttons, currentIndex, rowButtons)
-  }
-
-  private handleNavigationKey(
-    e: KeyboardEvent, 
-    buttons: HTMLButtonElement[], 
-    currentIndex: number,
-    rowButtons: HTMLButtonElement[]
-  ): void {
+    if (this.emojiButtons.length === 0) return
+    
     switch (e.key) {
       case 'ArrowRight':
         e.preventDefault()
-        if (currentIndex < buttons.length - 1) {
-          buttons[currentIndex + 1].focus()
-          this.lastChosenEmoji = buttons[currentIndex + 1].textContent || ''
-        }
+        this.navigateButtons(1)
         break
-
+        
       case 'ArrowLeft':
         e.preventDefault()
-        if (currentIndex > 0) {
-          buttons[currentIndex - 1].focus()
-          this.lastChosenEmoji = buttons[currentIndex - 1].textContent || ''
-        }
+        this.navigateButtons(-1)
         break
-
+        
       case 'ArrowDown':
         e.preventDefault()
-        this.navigateVertically(rowButtons, 'next')
+        // Estimate number of columns based on container width
+        const containerWidth = this.container.clientWidth
+        const buttonWidth = 32 // Min width of emoji buttons
+        const estimatedColumns = Math.floor(containerWidth / buttonWidth)
+        this.navigateButtons(Math.max(estimatedColumns, 8))
         break
-
+        
       case 'ArrowUp':
         e.preventDefault()
-        this.navigateVertically(rowButtons, 'prev')
+        const containerWidth2 = this.container.clientWidth
+        const buttonWidth2 = 32
+        const estimatedColumns2 = Math.floor(containerWidth2 / buttonWidth2)
+        this.navigateButtons(-Math.max(estimatedColumns2, 8))
         break
-
+        
       case 'Enter':
         e.preventDefault()
-        if (document.activeElement instanceof HTMLButtonElement) {
+        if (this.highlightedIndex >= 0 && this.highlightedIndex < this.emojiButtons.length) {
+          const button = this.emojiButtons[this.highlightedIndex]
+          const emoji = button.textContent || ''
           const keepOpen = e.metaKey || e.ctrlKey
-          this.lastChosenEmoji = document.activeElement.textContent || ''
-          this.onEmojiSelect(this.lastChosenEmoji, keepOpen)
+          this.lastChosenEmoji = emoji
+          this.onEmojiSelect(emoji, keepOpen)
         }
         break
-
+        
       case ' ':
         e.preventDefault()
-        if (document.activeElement instanceof HTMLButtonElement) {
-          this.lastChosenEmoji = document.activeElement.textContent || ''
-          this.onEmojiSelect(this.lastChosenEmoji, true)
+        if (this.highlightedIndex >= 0 && this.highlightedIndex < this.emojiButtons.length) {
+          const button = this.emojiButtons[this.highlightedIndex]
+          const emoji = button.textContent || ''
+          this.lastChosenEmoji = emoji
+          this.onEmojiSelect(emoji, true)
         }
         break
     }
   }
 
-  private navigateVertically(rowButtons: HTMLButtonElement[], direction: 'next' | 'prev'): void {
-    const currentRow = rowButtons[0].closest('tr')
-    if (!currentRow) return
-
-    let targetRow = direction === 'next' 
-      ? currentRow.nextElementSibling 
-      : currentRow.previousElementSibling
-
-    // Skip category header rows
-    while (targetRow && !targetRow.getElementsByTagName('button').length) {
-      targetRow = direction === 'next'
-        ? targetRow.nextElementSibling
-        : targetRow.previousElementSibling
-    }
-
-    if (targetRow) {
-      const targetButtons = Array.from(targetRow.getElementsByTagName('button')) as HTMLButtonElement[]
-      if (targetButtons.length > 0) {
-        const targetIndex = Math.min(this.lastColumnIndex, targetButtons.length - 1)
-        targetButtons[targetIndex].focus()
-      }
-    }
-  }
-
-  private getCurrentRowPosition(): { rowButtons: HTMLButtonElement[], columnIndex: number } | null {
-    const currentButton = document.activeElement as HTMLButtonElement
-    if (!currentButton || !(currentButton instanceof HTMLButtonElement)) return null
-
-    const currentRow = currentButton.closest('tr')
-    if (!currentRow) return null
-
-    const rowButtons = Array.from(currentRow.getElementsByTagName('button')) as HTMLButtonElement[]
-    const columnIndex = rowButtons.indexOf(currentButton)
+  private navigateButtons(step: number): void {
+    if (this.emojiButtons.length === 0) return
     
-    return { rowButtons, columnIndex }
+    // If nothing is highlighted, start from beginning
+    if (this.highlightedIndex < 0 || this.highlightedIndex >= this.emojiButtons.length) {
+      this.highlightedIndex = 0
+    } else {
+      this.highlightedIndex = (this.highlightedIndex + step + this.emojiButtons.length) % this.emojiButtons.length
+    }
+    
+    const buttonToFocus = this.emojiButtons[this.highlightedIndex]
+    if (buttonToFocus) {
+      buttonToFocus.focus()
+      
+      // Ensure the button is in view
+      buttonToFocus.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      })
+    }
   }
 
-  getElement(): HTMLTableElement {
-    console.log('Getting EmojiView element:', this.table)
-    return this.table
+  getElement(): HTMLDivElement {
+    return this.container
   }
 
   getLastChosenEmoji(): string | null {
@@ -347,26 +330,24 @@ class EmojiView {
   }
 
   focusLastChosenEmoji(): void {
+    if (this.emojiButtons.length === 0) return
+    
     if (!this.lastChosenEmoji) {
       // If no last chosen emoji, focus the first button
-      const firstButton = this.table.querySelector('button')
-      if (firstButton) {
-        firstButton.focus()
-      }
+      this.highlightedIndex = 0
+      this.emojiButtons[0]?.focus()
       return
     }
 
     // Find and focus the last chosen emoji button
-    const buttons = Array.from(this.table.getElementsByTagName('button')) as HTMLButtonElement[]
-    const lastChosenButton = buttons.find(button => button.textContent === this.lastChosenEmoji)
-    if (lastChosenButton) {
-      lastChosenButton.focus()
+    const lastChosenIndex = this.emojiButtons.findIndex(button => button.textContent === this.lastChosenEmoji)
+    if (lastChosenIndex >= 0) {
+      this.highlightedIndex = lastChosenIndex
+      this.emojiButtons[lastChosenIndex].focus()
     } else {
       // If not found, focus the first button
-      const firstButton = buttons[0]
-      if (firstButton) {
-        firstButton.focus()
-      }
+      this.highlightedIndex = 0
+      this.emojiButtons[0]?.focus()
     }
   }
 
@@ -417,7 +398,7 @@ export class EmojiPickerUI {
       padding: 1rem;
     `
 
-    // Create a scroll container for the table
+    // Create a scroll container for the grid
     const scrollContainer = document.createElement('div')
     scrollContainer.style.cssText = `
       flex: 1;
@@ -442,7 +423,7 @@ export class EmojiPickerUI {
     
     // Force a re-render after mounting to populate the view
     this.view.render()
-    console.log('EmojiPickerUI mounted, container:', container.innerHTML)
+    console.log('EmojiPickerUI mounted')
   }
 
   private selectEmoji(emoji: string, keepOpen = false): void {
@@ -464,7 +445,7 @@ export class EmojiPickerUI {
   }
 
   handleKeydown(e: KeyboardEvent): void {
-    // Handle typing in the table
+    // Handle typing in the grid
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault()
       
@@ -473,7 +454,7 @@ export class EmojiPickerUI {
         window.clearTimeout(this.searchTimeout)
       }
       
-      // If we're in the table view, use the search input's current value as the base
+      // If we're in the grid view, use the search input's current value as the base
       if (document.activeElement?.tagName === 'BUTTON') {
         this.searchBuffer = this.search.getValue()
       }

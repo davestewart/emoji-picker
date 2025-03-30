@@ -15,8 +15,9 @@
     }
   },
   "scripts": {
-    "dev": "tsc --watch",
+    "dev": "./dev.sh",
     "build": "tsc && cp -r src/config dist/",
+    "setup": "npm i && cd playground && npm i",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -27,6 +28,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "typescript": "^5.0.2"
+    "typescript": "^5.0.2",
+    "vite": "^5.0.0"
   }
 }

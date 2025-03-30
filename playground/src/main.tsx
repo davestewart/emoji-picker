@@ -10,7 +10,6 @@ function App() {
   const [insertPosition, setInsertPosition] = useState({ start: 0, end: 0 })
 
   useEffect(() => {
-    debugger
     if (!editorRef.current || !containerRef.current) {
       console.error('Editor or container ref not found')
       return

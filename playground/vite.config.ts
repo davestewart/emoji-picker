@@ -11,18 +11,17 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // Point directly to the parent's src directory
       'emoji-picker': path.resolve(__dirname, '../src/index.ts'),
     }
   },
   server: {
     port: 3000,
-    open: true
+    open: true,
   },
-  build: {
-    outDir: 'dist',
-    sourcemap: true
-  },
+  // Tell Vite to watch the parent src directory
   optimizeDeps: {
-    include: ['emoji-picker']
+    // Force reoptimize on changes
+    force: true
   }
 }) 

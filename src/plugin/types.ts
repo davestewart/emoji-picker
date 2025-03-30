@@ -1,9 +1,9 @@
+export interface EmojiData {
+  [key: string]: EmojiData | string
+}
+
 export interface EmojiConfig {
-  [category: string]: {
-    [subcategory: string]: {
-      [emoji: string]: string
-    } | string
-  }
+  [category: string]: EmojiData
 }
 
 export interface EmojiKeywords {
