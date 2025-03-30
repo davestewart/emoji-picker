@@ -1,6 +1,6 @@
-import type { EmojiConfig, EmojiPickerOptions } from './types'
-import { EmojiPickerUI } from './ui'
-import { parseConfig, enrichKeywords } from './parser'
+import type { EmojiConfig, EmojiPickerOptions } from './plugin/types'
+import { EmojiPickerUI } from './plugin/ui'
+import { parseConfig, enrichKeywords } from './plugin/parser'
 
 interface EmojiKeywords {
   [emoji: string]: string
