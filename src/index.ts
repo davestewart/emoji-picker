@@ -2,6 +2,10 @@ import type { EmojiConfig, EmojiPickerOptions } from './types'
 import { EmojiPickerUI } from './ui'
 import { parseConfig } from './parser'
 
+interface EmojiKeywords {
+  [emoji: string]: string
+}
+
 /**
  * EmojiPicker - A plugin for JavaScript text editors
  */
@@ -9,6 +13,7 @@ export class EmojiPicker {
   private ui?: EmojiPickerUI
   private config?: EmojiConfig
   private editor?: HTMLTextAreaElement | HTMLInputElement
+  private keywords?: EmojiKeywords
 
   constructor() {
     // Initialize the picker
@@ -36,10 +41,20 @@ export class EmojiPicker {
         this.config = parseConfig(yaml)
       }
 
+      // Load keywords
+      console.log('Loading keywords...')
+      const keywordsResponse = await fetch('/src/config/keywords.yml')
+      if (!keywordsResponse.ok) {
+        throw new Error(`Failed to load keywords: ${keywordsResponse.statusText}`)
+      }
+      const keywordsYaml = await keywordsResponse.text()
+      this.keywords = parseConfig(keywordsYaml)
+
       console.log('Parsed config:', this.config)
+      console.log('Parsed keywords:', this.keywords)
 
       // Initialize UI
-      this.ui = new EmojiPickerUI(this.config, onSelect, editor)
+      this.ui = new EmojiPickerUI(this.config, onSelect, editor, this.keywords)
       console.log('UI initialized')
     } catch (error) {
       console.error('Failed to initialize EmojiPicker:', error)
