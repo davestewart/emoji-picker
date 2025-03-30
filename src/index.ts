@@ -1,92 +1,137 @@
-import type { EmojiConfig, EmojiPickerOptions } from './plugin/types'
+import type { EmojiConfig, EmojiKeywords } from './plugin/types'
+import defaultConfig from './config/emojis.json'
+import defaultKeywords from './config/keywords.json'
 import { EmojiPickerUI } from './plugin/ui'
-import { parseConfig, enrichKeywords } from './plugin/parser'
 
-interface EmojiKeywords {
-  [emoji: string]: string
+export interface EmojiPickerOptions {
+  emojis?: EmojiConfig
+  keywords?: EmojiKeywords
+  onSelect?: (emoji: string, options: { keepFocus: boolean }) => void
 }
 
 /**
  * EmojiPicker - A plugin for JavaScript text editors
  */
 export class EmojiPicker {
-  private ui?: EmojiPickerUI
-  private config?: EmojiConfig
-  private editor?: HTMLTextAreaElement | HTMLInputElement
-  private keywords?: EmojiKeywords
+  private config: EmojiConfig
+  private keywords: EmojiKeywords
+  private onSelect: (emoji: string, options: { keepFocus: boolean }) => void
+  private container: HTMLElement | null = null
+  private isVisible = true // Changed to true by default since we're not toggling in playground
+  private ui: EmojiPickerUI | null = null
+  private pickerElement: HTMLDivElement | null = null
 
   constructor() {
-    // Initialize the picker
+    console.log('Creating EmojiPicker with default config:', defaultConfig)
+    if (!defaultConfig || typeof defaultConfig !== 'object') {
+      console.error('Invalid default config:', defaultConfig)
+      this.config = {}
+    } else {
+      this.config = defaultConfig
+    }
+    
+    if (!defaultKeywords || typeof defaultKeywords !== 'object') {
+      console.error('Invalid default keywords:', defaultKeywords)
+      this.keywords = {}
+    } else {
+      this.keywords = defaultKeywords
+    }
+    
+    this.onSelect = () => {}
   }
 
   /**
-   * Initialize the emoji picker with the given options
+   * Initialize the emoji picker with configuration
    */
   async init(options: EmojiPickerOptions): Promise<void> {
-    const { editor, onSelect = () => {}, config } = options
-    this.editor = editor
-
-    try {
-      // Use provided config or load default
-      if (config) {
-        this.config = typeof config === 'string' 
-          ? parseConfig(config) as EmojiConfig 
-          : config
-      } else {
-        console.log('Loading default config...')
-        const response = await fetch('/src/config/emojis.yml')
-        if (!response.ok) {
-          throw new Error(`Failed to load config: ${response.statusText}`)
-        }
-        const yaml = await response.text()
-        console.log('Loaded config:', yaml)
-        this.config = parseConfig(yaml) as EmojiConfig
-      }
-
-      if (!this.config) {
-        throw new Error('Failed to load emoji configuration')
-      }
-
-      // Load keywords
-      console.log('Loading keywords...')
-      const keywordsResponse = await fetch('/src/config/keywords.yml')
-      if (!keywordsResponse.ok) {
-        throw new Error(`Failed to load keywords: ${keywordsResponse.statusText}`)
-      }
-      const keywordsYaml = await keywordsResponse.text()
-      const rawKeywords = parseConfig(keywordsYaml) as EmojiKeywords
-      
-      // Enrich keywords with category information
-      this.keywords = enrichKeywords(rawKeywords, this.config)
-
-      console.log('Parsed config:', this.config)
-      console.log('Parsed keywords:', this.keywords)
-
-      // Initialize UI
-      this.ui = new EmojiPickerUI(this.config, onSelect, editor, this.keywords)
-      console.log('UI initialized')
-    } catch (error) {
-      console.error('Failed to initialize EmojiPicker:', error)
-      throw error
+    debugger
+    console.log('Initializing EmojiPicker with options:', options)
+    if (options.emojis) {
+      this.config = options.emojis
+      console.log('Using provided emoji config')
     }
+    if (options.keywords) {
+      this.keywords = options.keywords
+      console.log('Using provided keywords')
+    }
+    if (options.onSelect) {
+      this.onSelect = options.onSelect
+      console.log('Using provided onSelect callback')
+    }
+
+    // Create picker element once during initialization
+    this.pickerElement = document.createElement('div')
+    this.pickerElement.style.cssText = `
+      position: relative;
+      background: white;
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+      overflow: auto;
+    `
+
+    // Create UI instance once during initialization
+    console.log('Creating EmojiPickerUI with config:', this.config)
+    this.ui = new EmojiPickerUI(
+      this.config,
+      (emoji, options) => {
+        this.onSelect(emoji, options)
+        if (!options.keepFocus) {
+          this.toggle()
+        }
+      },
+      this.keywords
+    )
+
+    // Add keyboard event listener
+    this.pickerElement.addEventListener('keydown', (e) => {
+      if (this.ui) {
+        this.ui.handleKeydown(e)
+      }
+    })
   }
 
   /**
-   * Mount the emoji picker to the specified element
+   * Mount the picker to a container element
    */
-  mount(target: HTMLElement): void {
-    if (!this.ui) {
-      throw new Error('EmojiPicker not initialized. Call init() first.')
+  mount(container: HTMLElement): void {
+    console.log('Mounting EmojiPicker to container:', container)
+    this.container = container
+    
+    if (!this.pickerElement || !this.ui) {
+      console.error('EmojiPicker not initialized. Call init() first.')
+      return
     }
-    console.log('Mounting picker to target')
-    this.ui.mount(target)
+
+    // Clear container and append picker element
+    this.container.innerHTML = ''
+    this.container.appendChild(this.pickerElement)
+
+    // Mount UI to picker element
+    this.ui.mount(this.pickerElement)
+    console.log('EmojiPicker mounted successfully')
   }
 
-  toggle(): void {
-    if (!this.ui) {
-      throw new Error('EmojiPicker not initialized. Call init() first.')
+  /**
+   * Unmount the picker from its container
+   */
+  destroy(): void {
+    console.log('Destroying EmojiPicker')
+    if (this.container) {
+      this.container.innerHTML = ''
+      this.container = null
     }
-    console.log('Toggle called')
-    this.ui.toggle()
+    this.ui = null
+    this.pickerElement = null
+  }
+
+  /**
+   * Toggle the picker's visibility
+   */
+  toggle(): void {
+    this.isVisible = !this.isVisible
+    if (this.container) {
+      this.container.style.display = this.isVisible ? 'block' : 'none'
+    }
   }
 } 

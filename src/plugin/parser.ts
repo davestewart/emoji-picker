@@ -1,32 +1,32 @@
-import { parse } from 'yaml'
 import type { EmojiConfig, EmojiKeywords } from './types'
-
-declare module 'yaml' {
-  export function parse(yaml: string): any
-}
 
 /**
  * Split string into emojis, keeping composite emojis together
  */
-function splitEmojis(str: string): string[] {
-  // This regex matches:
-  // - Individual emoji characters
-  // - Emoji followed by variation selectors
-  // - Zero-width joiner sequences
-  return str.match(/\p{Emoji}(\u{FE0F}|\u{FE0E})?(?:\u{200D}\p{Emoji}(\u{FE0F}|\u{FE0E})?)*|\S/gu) || []
+export function splitEmojis(str: string): string[] {
+  console.log('Splitting emoji string:', str)
+  // Use Array.from to correctly handle multi-codepoint Unicode emojis (grapheme clusters)
+  const emojis = Array.from(str).filter(part => !/\s/.test(part)) // Also filter out whitespace characters
+  console.log('Split emojis:', emojis)
+  return emojis
 }
 
 /**
- * Parses a YAML string into an EmojiConfig object
+ * Process a config value, ensuring it's a string
  */
-export function parseConfig(yamlString: string): EmojiConfig | EmojiKeywords {
-  try {
-    const rawConfig = parse(yamlString)
-    
+function processConfigValue(value: string): string {
+  return value
+}
+
+/**
+ * Parses a config object into an EmojiConfig object
+ */
+export function parseConfig(config: unknown): EmojiConfig | EmojiKeywords {
+  try {    
     // Check if this is a keywords file (array of emoji: name pairs)
-    if (Array.isArray(rawConfig)) {
+    if (Array.isArray(config)) {
       const keywords: EmojiKeywords = {}
-      for (const item of rawConfig) {
+      for (const item of config) {
         const [emoji, name] = Object.entries(item)[0]
         if (typeof emoji === 'string' && typeof name === 'string') {
           keywords[emoji] = name
@@ -37,20 +37,23 @@ export function parseConfig(yamlString: string): EmojiConfig | EmojiKeywords {
     
     // Otherwise, treat as emoji config
     const processedConfig: EmojiConfig = {}
-    for (const [category, items] of Object.entries(rawConfig)) {
-      processedConfig[category] = {}
-      
-      // Items is an array of objects
-      for (const item of items as Array<Record<string, string>>) {
-        // Each item is an object with a single key-value pair
-        const [subcategory, emojis] = Object.entries(item)[0]
-        if (typeof subcategory === 'string' && typeof emojis === 'string') {
-          processedConfig[category][subcategory] = splitEmojis(emojis)
+    if (typeof config === 'object' && config !== null) {
+      for (const [category, items] of Object.entries(config)) {
+        processedConfig[category] = {}
+        
+        // Items is an array of objects
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            // Each item is an object with a single key-value pair
+            const [subcategory, emojis] = Object.entries(item)[0]
+            if (typeof subcategory === 'string' && typeof emojis === 'string') {
+              processedConfig[category][subcategory] = processConfigValue(emojis)
+            }
+          }
         }
       }
     }
 
-    console.log('Processed config:', processedConfig)
     return processedConfig
   } catch (error) {
     console.error('Failed to parse emoji config:', error)
@@ -65,7 +68,8 @@ export function enrichKeywords(keywords: EmojiKeywords, config: EmojiConfig): Em
   const enriched: EmojiKeywords = { ...keywords }
   
   for (const [category, subcategories] of Object.entries(config)) {
-    for (const [subcategory, emojis] of Object.entries(subcategories)) {
+    for (const [subcategory, value] of Object.entries(subcategories)) {
+      const emojis = typeof value === 'string' ? splitEmojis(value) : []
       for (const emoji of emojis) {
         if (enriched[emoji]) {
           enriched[emoji] = `${enriched[emoji]}, ${category}, ${subcategory}`

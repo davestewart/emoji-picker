@@ -1,9 +1,9 @@
-export interface EmojiCategory {
-  [subcategory: string]: string[]
-}
-
 export interface EmojiConfig {
-  [category: string]: EmojiCategory
+  [category: string]: {
+    [subcategory: string]: {
+      [emoji: string]: string
+    } | string
+  }
 }
 
 export interface EmojiKeywords {
@@ -11,7 +11,7 @@ export interface EmojiKeywords {
 }
 
 export interface EmojiPickerOptions {
-  config?: string | EmojiConfig
-  onSelect?: (emoji: string, options: { keepFocus: boolean }) => void
-  editor?: HTMLTextAreaElement | HTMLInputElement
-} 
+  emojis?: EmojiConfig
+  keywords?: EmojiKeywords
+  onSelect?: (emoji: string) => void
+}
