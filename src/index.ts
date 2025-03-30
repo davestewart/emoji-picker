@@ -27,7 +27,7 @@ export class EmojiPicker {
         this.config = typeof config === 'string' ? parseConfig(config) : config
       } else {
         console.log('Loading default config...')
-        const response = await fetch('/src/config.yml')
+        const response = await fetch('/src/config/emojis.yml')
         if (!response.ok) {
           throw new Error(`Failed to load config: ${response.statusText}`)
         }

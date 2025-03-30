@@ -98,8 +98,7 @@ class EmojiPopup {
     document.addEventListener('click', (e) => {
       const target = e.target as Node
       const isOutsideClick = !this.popup.contains(target) && 
-                           target !== this.button && 
-                           target !== this.editor
+                           target !== this.button
       if (isOutsideClick) {
         onOutsideClick()
       }
