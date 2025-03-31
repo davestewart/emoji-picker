@@ -43,6 +43,14 @@
   margin-left: 3rem;
 }
 
+.emoji-picker .tree__row[data-depth="4"] .tree__title {
+  margin-left: 4rem;
+}
+
+.emoji-picker .tree__category .tree__title {
+  font-weight: bold;
+}
+
 .emoji-picker .tree__group {
   display: contents;
 }
