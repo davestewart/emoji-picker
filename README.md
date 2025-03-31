@@ -17,6 +17,9 @@ npm install emoji-picker
 
 ## Usage
 
+> [!WARNING]
+> These docs are out of date
+
 ```javascript
 import { EmojiPicker } from 'emoji-picker'
 
