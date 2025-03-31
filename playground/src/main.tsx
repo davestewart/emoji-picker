@@ -1,13 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
-import { EmojiPicker } from 'emoji-picker'
+import { makeView } from '../../src'
 
 function App() {
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const pickerRef = useRef<EmojiPicker>(new EmojiPicker())
-  const [currentEmoji, setCurrentEmoji] = useState('')
-  const [insertPosition, setInsertPosition] = useState({ start: 0, end: 0 })
 
   useEffect(() => {
     if (!editorRef.current || !containerRef.current) {
@@ -16,73 +13,32 @@ function App() {
     }
 
     const editor = editorRef.current
+    const container = containerRef.current
 
-    // Update insert position on editor interactions
-    const updatePosition = () => {
-      setInsertPosition({
-        start: editor.selectionStart,
-        end: editor.selectionEnd
-      })
-    }
+    // Initialize emoji picker
+    makeView({
+      container,
+      callback: (emoji: string, multiSelect: boolean) => {
+        if (!editor) return
 
-    // Add event listeners
-    editor.addEventListener('mouseup', updatePosition)
-    editor.addEventListener('keyup', updatePosition)
-    editor.addEventListener('select', updatePosition)
-    editor.addEventListener('click', updatePosition)
-
-    console.log('Initializing picker with default config...')
-    // Initialize picker
-    pickerRef.current.init({
-      onSelect: (emoji: string, options: { keepFocus: boolean }) => {
-        console.log('Emoji selected:', emoji, options)
-        // Handle emoji selection
-        const editor = editorRef.current
-        if (!emoji || !editor) return
-
-        const { start, end } = insertPosition
+        const start = editor.selectionStart
+        const end = editor.selectionEnd
         const text = editor.value
+        
         const newText = text.substring(0, start) + emoji + text.substring(end)
         editor.value = newText
         
-        // Calculate new position after emoji
+        // Update cursor position
         const newPosition = start + emoji.length
-        
-        // Update insert position for next insertion
         editor.selectionStart = newPosition
         editor.selectionEnd = newPosition
-        setInsertPosition({ start: newPosition, end: newPosition })
         
-        // Update current emoji
-        setCurrentEmoji(emoji)
-        
-        // Focus editor if not keeping focus
-        if (!options.keepFocus) {
+        // Focus editor unless multiSelect is true
+        if (!multiSelect) {
           editor.focus()
         }
       }
-    }).then(() => {
-      console.log('Picker initialized successfully')
-      // Mount the picker
-      const container = containerRef.current
-      if (!container) {
-        console.error('Container ref lost during initialization')
-        return
-      }
-      console.log('Mounting picker to container:', container)
-      pickerRef.current?.mount(container)
-      console.log('Picker mounted successfully')
-    }).catch((error: Error) => {
-      console.error('Failed to initialize picker:', error)
     })
-
-    return () => {
-      editor.removeEventListener('mouseup', updatePosition)
-      editor.removeEventListener('keyup', updatePosition)
-      editor.removeEventListener('select', updatePosition)
-      editor.removeEventListener('click', updatePosition)
-      pickerRef.current?.destroy()
-    }
   }, [])
 
   return (
