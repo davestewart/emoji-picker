@@ -14,6 +14,8 @@
 .emoji-picker .search__input {
   flex: 1;
   padding: 0.5rem;
+  border: 1px solid #EEE;
+  border-radius: 4px;
 }
 
 .emoji-picker .search__clear {
@@ -21,14 +23,26 @@
   cursor: pointer;
 }
 
+.emoji-picker .tree__container {
+  max-height: 400px;
+  overflow-y: auto;
+  scroll-padding-top: 2px;
+  scroll-padding-bottom: 2px;
+}
+
 .emoji-picker .tree {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: .25rem;
+  padding-left: 8px;
+  padding-right: 16px;
 }
 
 .emoji-picker .tree__row {
   grid-column: 1 / -1;
+}
+
+.emoji-picker .tree__title {
+  padding-right: 8px;;
 }
 
 .emoji-picker .tree__row[data-depth="1"] .tree__title {
@@ -48,7 +62,7 @@
 }
 
 .emoji-picker .tree__category .tree__title {
-  font-weight: bold;
+  font-weight: 500;
 }
 
 .emoji-picker .tree__group {
@@ -58,7 +72,7 @@
 .emoji-picker .tree__title {
   min-height: 24px;
   display: flex;
-  align-items: center; 
+  align-items: center;
 }
 
 .emoji-picker .tree__emojis {
@@ -83,6 +97,11 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+.emoji-picker .tree__emoji:focus {
+  background-color: #444;
+  outline: none;
+}
+
 .emoji-picker .tree__emoji[aria-selected="true"] {
   background-color: rgba(0, 0, 0, 0.1);
 }
@@ -92,4 +111,4 @@
   text-align: center;
   padding: 2rem;
   color: #666;
-} 
+}
